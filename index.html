@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workout Tracker</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Workout Tracker</h1>
+
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="registro">Registrar</button>
+        <button type="button" class="tab" data-tab="sesion">Sesión del día</button>
+        <button type="button" class="tab" data-tab="historial">Historial</button>
+        <button type="button" class="tab" data-tab="progreso">Progreso</button>
+        <button type="button" class="tab" data-tab="datos">Datos</button>
+      </div>
+
+      <!-- REGISTRAR -->
+      <div id="sec-registro" class="section active">
+        <div class="card">
+          <div class="form-grid">
+            <div class="field"><label>Fecha</label><input type="date" id="f-fecha" /></div>
+            <div class="field">
+              <label>Grupo muscular</label>
+              <select id="f-grupo">
+                <option value="">Seleccionar...</option>
+                <option>Pecho</option>
+                <option>Espalda</option>
+                <option>Pierna</option>
+                <option>Hombro</option>
+                <option>Glúteo</option>
+                <option>Bíceps</option>
+                <option>Tríceps</option>
+                <option>Core</option>
+                <option>Cardio</option>
+                <option>Full Body</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Ejercicio</label><input type="text" id="f-ejercicio" placeholder="Ej. Press banca" />
+            </div>
+            <div class="field"><label>Peso (kg)</label><input type="text" id="f-peso" placeholder="-" /></div>
+            <div class="field"><label>Reps</label><input type="text" id="f-reps" placeholder="-" /></div>
+            <div class="field"><label>Series</label><input type="text" id="f-series" placeholder="Ej. 3" /></div>
+          </div>
+          <div class="field" style="margin-bottom: 12px">
+            <label>Comentarios / Sensaciones</label>
+            <textarea id="f-comentarios" placeholder="Ej. Buen rango de movimiento, leve fatiga en serie 3..."></textarea>
+          </div>
+          <button type="button" class="btn-primary" id="btn-guardar">Guardar ejercicio</button>
+          <p id="msg-ok" class="msg-ok">Guardado correctamente.</p>
+        </div>
+      </div>
+
+      <!-- SESIÓN DEL DÍA -->
+      <div id="sec-sesion" class="section">
+        <div class="filter-row">
+          <input type="date" id="ses-fecha" />
+          <button type="button" class="btn-secondary" id="btn-ses-hoy">Hoy</button>
+        </div>
+        <div id="sesion-content"></div>
+      </div>
+
+      <!-- HISTORIAL -->
+      <div id="sec-historial" class="section">
+        <div class="filter-row">
+          <select id="fil-grupo">
+            <option value="">Todos los grupos</option>
+            <option>Pecho</option>
+            <option>Espalda</option>
+            <option>Pierna</option>
+            <option>Hombro</option>
+            <option>Glúteo</option>
+            <option>Bíceps</option>
+            <option>Tríceps</option>
+            <option>Core</option>
+            <option>Cardio</option>
+            <option>Full Body</option>
+          </select>
+          <select id="fil-ejercicio"><option value="">Todos los ejercicios</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Grupo</th>
+                <th>Ejercicio</th>
+                <th>Peso</th>
+                <th>Reps</th>
+                <th>Series</th>
+                <th>Comentarios</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-historial"></tbody>
+          </table>
+        </div>
+        <div id="empty-hist" class="empty" style="display: none">Sin registros. Ve a Registrar para añadir.</div>
+      </div>
+
+      <!-- PROGRESO -->
+      <div id="sec-progreso" class="section">
+        <div class="metrics" id="metrics-row"></div>
+        <div class="filter-row">
+          <select id="prog-ejercicio"><option value="">Seleccionar ejercicio para ver evolución...</option></select>
+        </div>
+        <div class="chart-block">
+          <p class="chart-label">Evolución de peso por sesión</p>
+          <div style="position: relative; width: 100%; height: 200px">
+            <canvas id="chart-peso" role="img" aria-label="Evolución de peso">Sin datos.</canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <p class="chart-label">Reps por sesión</p>
+          <div style="position: relative; width: 100%; height: 180px">
+            <canvas id="chart-reps" role="img" aria-label="Reps por sesión">Sin datos.</canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <p class="chart-label">Volumen total por grupo muscular</p>
+          <div id="legend-vol" class="legend"></div>
+          <div style="position: relative; width: 100%; height: 220px">
+            <canvas id="chart-volumen" role="img" aria-label="Volumen por grupo">Sin datos.</canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <p class="chart-label">Frecuencia semanal de entrenamiento</p>
+          <div style="position: relative; width: 100%; height: 180px">
+            <canvas id="chart-freq" role="img" aria-label="Sesiones por semana">Sin datos.</canvas>
+          </div>
+        </div>
+        <div id="empty-prog" class="empty" style="display: none">Registra entrenamientos para ver tu progreso.</div>
+      </div>
+
+      <!-- DATOS -->
+      <div id="sec-datos" class="section">
+        <div class="btn-row">
+          <button type="button" class="btn-primary" id="btn-export-csv">Exportar CSV</button>
+          <button type="button" class="btn-secondary" id="btn-import-csv">Importar CSV</button>
+          <input type="file" id="import-input" accept=".csv" style="display: none" />
+        </div>
+        <div class="import-area" id="import-area">
+          Arrastra o haz clic para importar un CSV previamente exportado
+        </div>
+        <p id="msg-import" class="msg-ok"></p>
+        <div class="info-box">
+          <strong style="font-size: 13px; font-weight: 500">Formato del CSV</strong>
+          <code>fecha,grupo,ejercicio,peso,reps,series,comentarios</code>
+          <p style="margin-top: 6px; font-size: 12px; color: var(--text3)">
+            El CSV exportado puede reimportarse directamente. Para importar datos históricos, usa el mismo formato.
+          </p>
+        </div>
+        <div style="margin-top: 1rem">
+          <button type="button" class="btn-secondary" style="color: #a32d2d; border-color: #f09595" id="btn-borrar-todo">
+            Borrar todos los datos
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
