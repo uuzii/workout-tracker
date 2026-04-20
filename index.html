@@ -505,6 +505,19 @@ async function init() {
   if (!ok) return;
 }
 
+Object.assign(window, {
+  switchTab,
+  today,
+  renderSesion,
+  renderHistorial,
+  renderProgreso,
+  guardar,
+  eliminar,
+  exportCSV,
+  importCSV,
+  borrarTodo
+});
+
 init();
 </script>
 </body>
