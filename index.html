@@ -78,12 +78,30 @@
     background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg);
     padding: 14px 18px; font-size: 13px; color: var(--text2);
   }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .user-mail { font-size: 12px; color: var(--text2); overflow-wrap: anywhere; }
+  .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .auth-card { width: 100%; max-width: 360px; background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; }
+  .auth-title { font-size: 18px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+  .auth-sub { font-size: 13px; color: var(--text2); margin-bottom: 1rem; }
 </style>
 </head>
 <body>
 <div id="loading-overlay" class="loading-overlay"><div id="loading-text" class="loading-box">Conectando...</div></div>
-<div class="container">
+<div id="auth-screen" class="auth-wrap" style="display:none">
+  <div class="auth-card">
+    <p class="auth-title">Workout Tracker</p>
+    <p class="auth-sub">Inicia sesión para sincronizar tus entrenamientos en la nube.</p>
+    <button class="btn-primary" onclick="signInWithGoogle()" style="width:100%">Continuar con Google</button>
+    <p id="auth-error" class="msg-err"></p>
+  </div>
+</div>
+<div id="app-shell" class="container" style="display:none">
   <h1>Workout Tracker</h1>
+  <div class="topbar">
+    <p id="user-mail" class="user-mail"></p>
+    <button class="btn-secondary" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
   <p id="msg-error" class="msg-err"></p>
 
   <div class="tabs">
@@ -208,6 +226,8 @@ const supabase = hasSupabaseConfig ? window.supabase.createClient(supabaseUrl, s
 
 let data = [];
 let charts = {};
+let currentSession = null;
+let currentUser = null;
 
 function today() { return new Date().toISOString().slice(0,10); }
 function getEjercicios() { return [...new Set(data.map(d => d.ejercicio))].sort(); }
@@ -229,6 +249,55 @@ function clearError() {
   el.style.display = 'none';
 }
 
+function showAuthError(message) {
+  const el = document.getElementById('auth-error');
+  el.textContent = message;
+  el.style.display = 'block';
+}
+
+function clearAuthError() {
+  const el = document.getElementById('auth-error');
+  el.textContent = '';
+  el.style.display = 'none';
+}
+
+function updateAuthUI() {
+  const authScreen = document.getElementById('auth-screen');
+  const appShell = document.getElementById('app-shell');
+  if (currentUser) {
+    authScreen.style.display = 'none';
+    appShell.style.display = 'block';
+    document.getElementById('user-mail').textContent = currentUser.email || '';
+  } else {
+    authScreen.style.display = 'flex';
+    appShell.style.display = 'none';
+    document.getElementById('user-mail').textContent = '';
+    data = [];
+    renderSesion();
+    renderHistorial();
+    renderProgreso();
+  }
+}
+
+async function signInWithGoogle() {
+  clearAuthError();
+  if (!hasSupabaseConfig) {
+    showAuthError('Falta configurar Supabase. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
+    return;
+  }
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) showAuthError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+}
+
+async function cerrarSesion() {
+  if (!hasSupabaseConfig) return;
+  const { error } = await supabase.auth.signOut();
+  if (error) showError('No se pudo cerrar sesión. Inténtalo de nuevo.');
+}
+
 async function cargarDatos() {
   if (!hasSupabaseConfig) {
     showError('Falta configurar Supabase. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
@@ -239,6 +308,7 @@ async function cargarDatos() {
   const { data: rows, error } = await supabase
     .from('entrenos')
     .select('*')
+    .eq('user_id', currentUser.id)
     .order('fecha', { ascending: false });
   setLoading(false);
   if (error) {
@@ -274,6 +344,7 @@ async function guardar() {
   if (!fecha || !grupo || !ejercicio) { alert('Fecha, grupo y ejercicio son obligatorios.'); return; }
 
   const payload = {
+    user_id: currentUser.id,
     fecha,
     grupo,
     ejercicio,
@@ -346,7 +417,7 @@ async function eliminar(id) {
     return;
   }
   clearError();
-  const { error } = await supabase.from('entrenos').delete().eq('id', id);
+  const { error } = await supabase.from('entrenos').delete().eq('id', id).eq('user_id', currentUser.id);
   if (error) {
     showError('No se pudo eliminar el registro. Revisa tu conexión e inténtalo de nuevo.');
     return;
@@ -453,7 +524,7 @@ async function importCSV(event) {
       const cols = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g) || lines[i].split(',');
       if (cols.length < 6) continue;
       const clean = cols.map(c => c.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
-      toInsert.push({fecha:clean[0], grupo:clean[1], ejercicio:clean[2], peso:clean[3]||'-', reps:clean[4]||'-', series:clean[5]||'-', comentarios:clean[6]||''});
+      toInsert.push({user_id: currentUser.id, fecha:clean[0], grupo:clean[1], ejercicio:clean[2], peso:clean[3]||'-', reps:clean[4]||'-', series:clean[5]||'-', comentarios:clean[6]||''});
     }
     if (!toInsert.length) {
       showImportMsg('No se encontraron filas válidas para importar.', true);
@@ -485,7 +556,7 @@ async function borrarTodo() {
   }
   clearError();
   if (!confirm('¿Borrar todos los datos? Esta acción no se puede deshacer.')) return;
-  const { error } = await supabase.from('entrenos').delete().not('id', 'is', null);
+  const { error } = await supabase.from('entrenos').delete().eq('user_id', currentUser.id);
   if (error) {
     showError('No se pudieron borrar los datos en la nube. Revisa tu conexión e inténtalo de nuevo.');
     return;
@@ -498,11 +569,42 @@ async function borrarTodo() {
 }
 
 async function init() {
-  const ok = await cargarDatos();
-  renderSesion();
-  renderHistorial();
-  renderProgreso();
-  if (!ok) return;
+  updateAuthUI();
+  if (!hasSupabaseConfig) {
+    showAuthError('Falta configurar Supabase. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
+    return;
+  }
+
+  setLoading(true, 'Comprobando sesión...');
+  const { data: sessionData } = await supabase.auth.getSession();
+  currentSession = sessionData.session || null;
+  currentUser = currentSession?.user || null;
+  updateAuthUI();
+  setLoading(false);
+
+  if (currentUser) {
+    const ok = await cargarDatos();
+    if (!ok) return;
+    renderSesion();
+    renderHistorial();
+    renderProgreso();
+  }
+
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    currentSession = session || null;
+    currentUser = currentSession?.user || null;
+    clearError();
+    clearAuthError();
+    updateAuthUI();
+
+    if (currentUser) {
+      const ok = await cargarDatos();
+      if (!ok) return;
+      renderSesion();
+      renderHistorial();
+      renderProgreso();
+    }
+  });
 }
 
 Object.assign(window, {
@@ -515,7 +617,9 @@ Object.assign(window, {
   eliminar,
   exportCSV,
   importCSV,
-  borrarTodo
+  borrarTodo,
+  signInWithGoogle,
+  cerrarSesion
 });
 
 init();
