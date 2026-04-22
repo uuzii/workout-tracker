@@ -303,14 +303,12 @@ async function cargarDatos() {
     showError('Falta configurar Supabase. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
     return false;
   }
-  setLoading(true, 'Conectando con Supabase...');
   clearError();
   const { data: rows, error } = await supabase
     .from('entrenos')
     .select('*')
     .eq('user_id', currentUser.id)
     .order('fecha', { ascending: false });
-  setLoading(false);
   if (error) {
     showError('No se pudo cargar datos desde la nube. Revisa tu conexión e inténtalo de nuevo.');
     return false;
@@ -576,18 +574,23 @@ async function init() {
   }
 
   setLoading(true, 'Comprobando sesión...');
-  const { data: sessionData } = await supabase.auth.getSession();
-  currentSession = sessionData.session || null;
-  currentUser = currentSession?.user || null;
-  updateAuthUI();
-  setLoading(false);
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    currentSession = sessionData.session || null;
+    currentUser = currentSession?.user || null;
+    clearError();
+    clearAuthError();
+    updateAuthUI();
 
-  if (currentUser) {
-    const ok = await cargarDatos();
-    if (!ok) return;
-    renderSesion();
-    renderHistorial();
-    renderProgreso();
+    if (currentUser) {
+      const ok = await cargarDatos();
+      if (!ok) return;
+      renderSesion();
+      renderHistorial();
+      renderProgreso();
+    }
+  } finally {
+    setLoading(false);
   }
 
   supabase.auth.onAuthStateChange(async (_event, session) => {
