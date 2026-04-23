@@ -113,29 +113,7 @@
   </div>
 
   <div id="sec-registro" class="section active">
-    <div class="card">
-      <div class="form-grid">
-        <div class="field"><label>Fecha</label><input type="date" id="f-fecha"></div>
-        <div class="field"><label>Grupo muscular</label>
-          <select id="f-grupo">
-            <option value="">Seleccionar...</option>
-            <option>Pecho</option><option>Espalda</option><option>Pierna</option>
-            <option>Hombro</option><option>Glúteo</option><option>Bíceps</option>
-            <option>Tríceps</option><option>Core</option><option>Cardio</option><option>Full Body</option>
-          </select>
-        </div>
-        <div class="field"><label>Ejercicio</label><input type="text" id="f-ejercicio" placeholder="Ej. Press banca"></div>
-        <div class="field"><label>Peso (kg)</label><input type="text" id="f-peso" placeholder="-"></div>
-        <div class="field"><label>Reps</label><input type="text" id="f-reps" placeholder="-"></div>
-        <div class="field"><label>Series</label><input type="text" id="f-series" placeholder="Ej. 3"></div>
-      </div>
-      <div class="field" style="margin-bottom:12px">
-        <label>Comentarios / Sensaciones</label>
-        <textarea id="f-comentarios" placeholder="Ej. Buen rango de movimiento, leve fatiga en serie 3..."></textarea>
-      </div>
-      <button class="btn-primary" onclick="guardar()">Guardar ejercicio</button>
-      <p id="msg-ok" class="msg-ok">Guardado correctamente.</p>
-    </div>
+    <workout-form></workout-form>
   </div>
 
   <div id="sec-sesion" class="section">
@@ -212,6 +190,8 @@
 </div>
 
 <script type="module">
+import './src/components/workout-form.js';
+
 const GRUPO_COLORS = {
   Pecho:'#378ADD', Espalda:'#1D9E75', Pierna:'#7F77DD', Hombro:'#D85A30',
   Glúteo:'#D4537E', Bíceps:'#EF9F27', Tríceps:'#639922', Core:'#888780',
@@ -317,7 +297,6 @@ async function cargarDatos() {
   return true;
 }
 
-document.getElementById('f-fecha').value = today();
 document.getElementById('ses-fecha').value = today();
 
 function switchTab(t) {
@@ -330,38 +309,33 @@ function switchTab(t) {
   if (t === 'sesion') renderSesion();
 }
 
-async function guardar() {
+async function guardarEjercicio(payload) {
   if (!hasSupabaseConfig) {
     showError('Falta configurar Supabase. Define VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
     return;
   }
+  if (!currentUser) {
+    showError('Debes iniciar sesión para guardar ejercicios.');
+    return;
+  }
   clearError();
-  const fecha = document.getElementById('f-fecha').value;
-  const grupo = document.getElementById('f-grupo').value;
-  const ejercicio = document.getElementById('f-ejercicio').value.trim();
-  if (!fecha || !grupo || !ejercicio) { alert('Fecha, grupo y ejercicio son obligatorios.'); return; }
-
-  const payload = {
+  const insertPayload = {
     user_id: currentUser.id,
-    fecha,
-    grupo,
-    ejercicio,
-    peso: document.getElementById('f-peso').value.trim() || '-',
-    reps: document.getElementById('f-reps').value.trim() || '-',
-    series: document.getElementById('f-series').value.trim() || '-',
-    comentarios: document.getElementById('f-comentarios').value.trim()
+    fecha: payload.fecha,
+    grupo: payload.grupo,
+    ejercicio: payload.ejercicio,
+    peso: payload.peso || '-',
+    reps: payload.reps || '-',
+    series: payload.series || '-',
+    comentarios: payload.comentarios || ''
   };
 
-  const { error } = await supabase.from('entrenos').insert(payload);
+  const { error } = await supabase.from('entrenos').insert(insertPayload);
   if (error) {
     showError('No se pudo guardar en la nube. Revisa tu conexión e inténtalo de nuevo.');
     return;
   }
   await cargarDatos();
-  ['f-ejercicio','f-peso','f-reps','f-series','f-comentarios'].forEach(id => document.getElementById(id).value = '');
-  const m = document.getElementById('msg-ok');
-  m.style.display = 'block';
-  setTimeout(() => m.style.display = 'none', 2000);
 }
 
 function renderSesion() {
@@ -610,13 +584,16 @@ async function init() {
   });
 }
 
+document.addEventListener('ejercicio-guardado', (e) => {
+  guardarEjercicio(e.detail);
+});
+
 Object.assign(window, {
   switchTab,
   today,
   renderSesion,
   renderHistorial,
   renderProgreso,
-  guardar,
   eliminar,
   exportCSV,
   importCSV,

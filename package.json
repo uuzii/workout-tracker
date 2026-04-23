@@ -12,6 +12,7 @@
     "vite": "^8.0.4"
   },
   "dependencies": {
-    "chart.js": "^4.4.1"
+    "chart.js": "^4.4.1",
+    "lit": "^3.3.2"
   }
 }
